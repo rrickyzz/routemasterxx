@@ -350,7 +350,21 @@ class RoutemasterDelegate extends RouterDelegate<RouteData>
   Future<bool> popRoute() async {
     assert(!_isDisposed);
 
-    return history.back();
+    final navigator = _state.stack._attachedNavigator!;
+    final currentRoute = navigator.currentRoute();
+    final isPageRoute = currentRoute is PageRoute;
+    if (isPageRoute) {
+      history.back();
+      return true;
+    }
+
+    final popResult = await navigator.maybePop();
+    if (popResult) {
+      _state.stack.notifyListeners();
+      return true;
+    }
+
+    return false;
   }
 
   /// Attempts to pops the top-level route. Returns `true` if a route was
@@ -1458,3 +1472,20 @@ enum _ReportType {
 }
 
 T? _ambiguate<T>(T? value) => value;
+
+/// Extensions on NavigatorState
+extension NavigatorStateExtension on NavigatorState {
+
+  /// Returns the current route on the Navigator
+  Route<dynamic>? currentRoute() {
+    Route<dynamic>? result;
+
+    // Workaround (never pops, predicate always returns true)
+    popUntil((route) {
+      result = route;
+      return true;
+    });
+
+    return result;
+  }  
+}
